@@ -1,6 +1,6 @@
 {
   "name": "css-esm",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "CSS modules in the browser, with lightweight preprocessing",
   "main": "cssesm.esm.js",
   "module": "cssesm.esm.js",
