@@ -14,33 +14,59 @@
 
 // Fork of https://github.com/lukejacksonn/csz (MIT License, Copyright (c) 2020 Luke Jackson)
 
-import {compile, serialize, middleware, stringify} from './stylis-4.0.0.esm.js';
+import {compile, middleware, serialize, stringify} from './stylis-4.0.0.esm.js';
+
 import murmur from './murmurhash3.esm.js';
 
 const cache = {};
 
+const rules = [];
 const sheet = document.createElement('style');
 document.head.appendChild(sheet);
 
-const isExternalStyleSheet = key => key.indexOf('\n') < 0 && /^http|\.css$/.test(key.trim());
+const tokenize = (s, re) => {
+  let tokens = [];
+  re.lastIndex = 0;
+  let si = 0;
+  let m;
+  while ((m = re.exec(s)) !== null) {
+    if (si != m.index) {
+      tokens.push(s.substring(si, m.index));
+    }
+    tokens.push(m[0]);
+    si = re.lastIndex;
+  }
+  if (si < s.length) {
+    tokens.push(s.substring(si));
+  }
+  return tokens;
+}
 
 const replaceLocals = (selector, mapper) => {
-  let global = false;
-  let parts = selector
-      .split(/(?=:local|:global)|(?<=\))/)
-      .map(part => {
-        let prevGlobal = global;
-        global = part.match(/^:global/) ? true : global;
-        global = part.match(/^:local/) ? false : global;
-        if (!global) {
-          part = part.replace(/\.([\w-_]+)/ig,
-              s => '.' + mapper(s.substring(1)));
-        }
-        global = part.match(/\)$/) ? prevGlobal : global;
-        return part.replace(/^:(global|local)\s*\(?\s*|\)$/g, '');
-      });
-  selector = parts.join('');
-  return selector;
+  let out = [];
+  let stack = [{local: true, emitParen: false}];
+  for (let token of tokenize(selector, /:(local|global)\s*\(?|\(|\)/g)) {
+    if (token.startsWith(':local')) {
+      token.endsWith('(') && stack.unshift({emitParen: false});
+      stack[0].local = true;
+    } else if (token.startsWith(':global')) {
+      token.endsWith('(') && stack.unshift({local:0, emitParen: false});
+      stack[0].local = false;
+    } else if (token == '(') {
+      stack.unshift({local: stack[0].local, emitParen: true});
+      out.push(token);
+    } else if (token == ')' && stack.length > 1) {
+      let {emitParen} = stack.shift();
+      emitParen && out.push(token);
+    } else {
+      if (stack[0].local) {
+        token = token.replace(/\.([\w-_]+)/ig,
+                              s => '.' + mapper(s.substring(1)));
+      }
+      out.push(token);
+    }
+  }
+  return out.join('');
 };
 
 const modulify = classMapper => element => {
@@ -53,6 +79,9 @@ const modulify = classMapper => element => {
 };
 
 function go(key) {
+  const globalIndex = rules.length;
+  rules[globalIndex] = '';
+
   const hashSeed = murmur(key);
   let loaded = false;
   let resolveLoaded;
@@ -94,7 +123,8 @@ function go(key) {
     cache[key] = {css};
     loaded = true;
     resolveLoaded();
-    sheet.innerHTML += css;
+    rules[globalIndex] = css;
+    sheet.innerHTML = rules.join('');
   };
 
   return {proxy, process};
