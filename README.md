@@ -9,7 +9,7 @@ Based on the quite awesome [csz](https://github.com/lukejacksonn/csz) library by
 With inline styles:
 
 ```js
-import {css} from 'path/to/css-esm';
+import {css} from 'https://unpkg.com/css-esm';
 
 const styles = css`
   .button {
@@ -34,7 +34,7 @@ document.body.innerHTML = `
 With external files:
 
 ```js
-import {loadCss} from 'path/to/css-esm';
+import {loadCss} from 'https://unpkg.com/css-esm';
 const styles = loadCss('main.css');
 
 document.body.innerHTML = `
